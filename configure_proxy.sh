@@ -7,6 +7,7 @@ APT_PROXIES=("192.168.1.10:3142" "192.168.1.11:3142")
 DOCKER_PROXIES=("192.168.1.20:8081" "192.168.1.21:8081")
 HTTP_PROXIES=("192.168.1.30:3128" "192.168.1.31:3128")
 GW_CLASSROOM=192.168.1.1
+DRY_MODE=true
 
 # Fonction pour tester la disponibilité d'un proxy
 test_proxy() {
@@ -29,24 +30,36 @@ find_available_proxy() {
 
 # Fonction pour désactiver la configuration APT
 disable_apt() {
-    rm -f /etc/apt/apt.conf.d/01proxy
+    if [ "$DRY_MODE" = true ]; then
+        echo "[DRY MODE] Désactiver la configuration APT (supprimer /etc/apt/apt.conf.d/01proxy)"
+    else
+        rm -f /etc/apt/apt.conf.d/01proxy
+    fi
 }
 
 # Fonction pour activer la configuration APT
 enable_apt() {
     local apt_proxy=$1
-    echo "Acquire::http::Proxy \"http://$apt_proxy\";" > /etc/apt/apt.conf.d/01proxy
-    echo "APT proxy configuré : $apt_proxy"
+    if [ "$DRY_MODE" = true ]; then
+        echo "[DRY MODE] Activer la configuration APT avec le proxy : $apt_proxy"
+    else
+        echo "Acquire::http::Proxy \"http://$apt_proxy\";" > /etc/apt/apt.conf.d/01proxy
+        echo "APT proxy configuré : $apt_proxy"
+    fi
 }
 
 # Fonction pour désactiver la configuration Docker
 disable_docker() {
     if command -v docker >/dev/null 2>&1; then
-        mkdir -p /etc/systemd/system/docker.service.d
-        echo -e "[Service]\nEnvironment=\"NO_PROXY=\"" > /etc/systemd/system/docker.service.d/http-proxy.conf
-        systemctl daemon-reload
-        systemctl restart docker
-        rm -f /etc/docker/daemon.json
+        if [ "$DRY_MODE" = true ]; then
+            echo "[DRY MODE] Désactiver la configuration Docker (supprimer /etc/docker/daemon.json et /etc/systemd/system/docker.service.d/http-proxy.conf)"
+        else
+            mkdir -p /etc/systemd/system/docker.service.d
+            echo -e "[Service]\nEnvironment=\"NO_PROXY=\"" > /etc/systemd/system/docker.service.d/http-proxy.conf
+            systemctl daemon-reload
+            systemctl restart docker
+            rm -f /etc/docker/daemon.json
+        fi
     fi
 }
 
@@ -54,23 +67,31 @@ disable_docker() {
 enable_docker() {
     local docker_proxy=$1
     if command -v docker >/dev/null 2>&1; then
-        sudo bash -c 'cat > /etc/docker/daemon.json << EOF
+        if [ "$DRY_MODE" = true ]; then
+            echo "[DRY MODE] Activer la configuration Docker avec le proxy : $docker_proxy"
+        else
+            sudo bash -c 'cat > /etc/docker/daemon.json << EOF
 {
   "registry-mirrors": ["http://$docker_proxy"],
   "insecure-registries": ["$docker_proxy"]
 }
 EOF'
-        systemctl daemon-reload
-        systemctl restart docker
-        echo "Docker proxy configuré : $docker_proxy"
+            systemctl daemon-reload
+            systemctl restart docker
+            echo "Docker proxy configuré : $docker_proxy"
+        fi
     fi
 }
 
 # Fonction pour désactiver la configuration Git
 disable_git() {
     if command -v git >/dev/null 2>&1; then
-        git config --global --unset http.proxy
-        git config --global --unset https.proxy
+        if [ "$DRY_MODE" = true ]; then
+            echo "[DRY MODE] Désactiver la configuration Git"
+        else
+            git config --global --unset http.proxy
+            git config --global --unset https.proxy
+        fi
     fi
 }
 
@@ -78,30 +99,42 @@ disable_git() {
 enable_git() {
     local http_proxy=$1
     if command -v git >/dev/null 2>&1; then
-        git config --global http.proxy "http://$http_proxy"
-        git config --global https.proxy "http://$http_proxy"
-        echo "Git proxy configuré : $http_proxy"
+        if [ "$DRY_MODE" = true ]; then
+            echo "[DRY MODE] Activer la configuration Git avec le proxy : $http_proxy"
+        else
+            git config --global http.proxy "http://$http_proxy"
+            git config --global https.proxy "http://$http_proxy"
+            echo "Git proxy configuré : $http_proxy"
+        fi
     fi
 }
 
 # Fonction pour supprimer la configuration des variables d'environnement
 disable_env_proxy() {
-    rm -f ~/.proxy_env
+    if [ "$DRY_MODE" = true ]; then
+        echo "[DRY MODE] Supprimer la configuration des variables d'environnement (supprimer ~/.proxy_env)"
+    else
+        rm -f ~/.proxy_env
+    fi
 }
 
 # Fonction pour ajouter les variables d'environnement du proxy
 enable_env_proxy() {
     local proxy=$1
-    echo "export http_proxy=\"http://$proxy\"" > ~/.proxy_env
-    echo "export https_proxy=\"http://$proxy\"" >> ~/.proxy_env
-    echo "export ftp_proxy=\"http://$proxy\"" >> ~/.proxy_env
-    echo "export no_proxy=\"localhost,127.0.0.1,.local\"" >> ~/.proxy_env
-    # Ajouter l'inclusion du fichier de variables d'environnement dans .bashrc et .zshrc
-    if [ -f ~/.bashrc ] && ! grep -q "source ~/.proxy_env" ~/.bashrc; then
-        echo "source ~/.proxy_env" >> ~/.bashrc
-    fi
-    if [ -f ~/.zshrc ] && ! grep -q "source ~/.proxy_env" ~/.zshrc; then
-        echo "source ~/.proxy_env" >> ~/.zshrc
+    if [ "$DRY_MODE" = true ]; then
+        echo "[DRY MODE] Ajouter les variables d'environnement du proxy : $proxy"
+    else
+        echo "export http_proxy=\"http://$proxy\"" > ~/.proxy_env
+        echo "export https_proxy=\"http://$proxy\"" >> ~/.proxy_env
+        echo "export ftp_proxy=\"http://$proxy\"" >> ~/.proxy_env
+        echo "export no_proxy=\"localhost,127.0.0.1,.local\"" >> ~/.proxy_env
+        # Ajouter l'inclusion du fichier de variables d'environnement dans .bashrc et .zshrc
+        if [ -f ~/.bashrc ] && ! grep -q "source ~/.proxy_env" ~/.bashrc; then
+            echo "source ~/.proxy_env" >> ~/.bashrc
+        fi
+        if [ -f ~/.zshrc ] && ! grep -q "source ~/.proxy_env" ~/.zshrc; then
+            echo "source ~/.proxy_env" >> ~/.zshrc
+        fi
     fi
 }
 
