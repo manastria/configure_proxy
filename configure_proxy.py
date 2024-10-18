@@ -21,9 +21,14 @@ DRY_MODE = not args.no_dry
 
 # Vérifier les privilèges root si le mode DRY est désactivé
 if not DRY_MODE and os.geteuid() != 0:
-    print("[91mERREUR: Ce script doit être exécuté avec des privilèges root (sudo) lorsque le mode DRY est désactivé.[0m")
+    print("\033[91mERREUR: Ce script doit être exécuté avec des privilèges root (sudo) lorsque le mode DRY est désactivé.\033[0m")
     exit(1)
 
+# Fonction pour afficher un titre avec couleur et soulignement adapté
+def print_title(title):
+    title_length = len(title)
+    print(f"\033[1m{title}\033[0m")
+    print(f"\033[94m{'=' * title_length}\033[0m")
 
 def test_proxy(proxy_ip):
     """Teste la disponibilité d'un proxy."""
@@ -31,16 +36,16 @@ def test_proxy(proxy_ip):
     host, port = proxy_ip.split(":")
     result = subprocess.run(["nc", "-z", "-w", "2", host, port], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if result.returncode == 0:
-        print("[92mdisponible.[0m")
+        print("\033[92mdisponible.\033[0m")
         return True
     else:
-        print("[91mnon disponible.[0m")
+        print("\033[91mnon disponible.\033[0m")
         return False
 
 
 def find_available_proxy(proxies):
     """Trouve le premier proxy disponible dans une liste."""
-    print("  [1mRecherche du proxy disponible...[0m")
+    print("  \033[1mRecherche du proxy disponible...\033[0m")
     for proxy in proxies:
         if test_proxy(proxy):
             return proxy
@@ -150,42 +155,39 @@ def enable_env_proxy(proxy):
 
 
 # Détection de l'environnement (classe ou maison)
-print("[1mDétection de l'environnement (classe ou maison)...[0m")
+print("\033[1mDétection de l'environnement (classe ou maison)...\033[0m")
 result = subprocess.run(["ping", "-c", "1", "-W", "2", GW_CLASSROOM], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 if result.returncode != 0:
-    print("  [92mEnvironnement maison détecté. Pas de proxy nécessaire, configuration directe.[0m")
+    print("  \033[92mEnvironnement maison détecté. Pas de proxy nécessaire, configuration directe.\033[0m")
     disable_apt()
     disable_docker()
     disable_git()
     disable_env_proxy()
 else:
-    print("[93mEnvironnement classe détecté. Configuration des proxys...[0m")
-    print("Configuration d'APT")
-    print("===================")
+    print("\033[93mEnvironnement classe détecté. Configuration des proxys...\033[0m")
+    print_title("Configuration d'APT")
     apt_proxy = find_available_proxy(APT_PROXIES)
     if apt_proxy:
-        print(f"  [94mProxy APT retenu : {apt_proxy}[0m")
+        print(f"  \033[94mProxy APT retenu : {apt_proxy}\033[0m")
         enable_apt(apt_proxy)
     else:
-        print("  [91mAucun proxy APT disponible.[0m")
+        print("  \033[91mAucun proxy APT disponible.\033[0m")
 
-    print("Configuration de DOCKER")
-    print("=======================")
+    print_title("Configuration de DOCKER")
     docker_proxy = find_available_proxy(DOCKER_PROXIES)
     if docker_proxy:
-        print(f"  [94mProxy Docker retenu : {docker_proxy}[0m")
+        print(f"  \033[94mProxy Docker retenu : {docker_proxy}\033[0m")
         enable_docker(docker_proxy)
     else:
-        print("  [91mAucun proxy Docker disponible.[0m")
+        print("  \033[91mAucun proxy Docker disponible.\033[0m")
 
-    print("Configuration des variables d'environnement")
-    print("===========================================")
+    print_title("Configuration des variables d'environnement")
     http_proxy = find_available_proxy(HTTP_PROXIES)
     if http_proxy:
-        print(f"  [94mProxy HTTP retenu : {http_proxy}[0m")
+        print(f"  \033[94mProxy HTTP retenu : {http_proxy}\033[0m")
         enable_env_proxy(http_proxy)
         enable_git(http_proxy)
-        print(f"  [92mHTTP proxy configuré : {http_proxy}[0m")
+        print(f"  \033[92mHTTP proxy configuré : {http_proxy}\033[0m")
     else:
-        print("  [91mAucun proxy HTTP disponible.[0m")
+        print("  \033[91mAucun proxy HTTP disponible.\033[0m")
